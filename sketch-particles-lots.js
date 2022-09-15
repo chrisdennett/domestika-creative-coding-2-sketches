@@ -1,4 +1,6 @@
 const canvasSketch = require("canvas-sketch");
+const random = require("canvas-sketch-util/random");
+const eases = require("eases");
 
 const settings = {
   dimensions: [1080, 1080],
@@ -10,15 +12,54 @@ const mousePos = { x: 9999, y: 9999 };
 let elCanvas;
 
 const sketch = ({ width, height, canvas }) => {
-  let x, y;
+  let x, y, radius;
+  // let pos = [];
+
+  const numCircles = 15;
+  const gapBtnCircles = 8;
+  const gapBtnDots = 4;
+  let dotRadius = 12;
+  let cirRadius = 0;
+  const fitRadius = dotRadius;
+  const fitDiameter = fitRadius * 2 + gapBtnDots;
+
   elCanvas = canvas;
   canvas.addEventListener("mousedown", onMouseDown);
 
-  for (let i = 0; i < 1; i++) {
-    x = width * 0.5;
-    y = height * 0.5;
-    particles.push(new Particle({ x, y }));
+  for (let i = 0; i < numCircles; i++) {
+    const circumference = Math.PI * 2 * cirRadius;
+    const dotsPerCircle = i > 0 ? Math.floor(circumference / fitDiameter) : 1;
+
+    const angleInc = (Math.PI * 2) / dotsPerCircle;
+
+    for (let j = 0; j < dotsPerCircle; j++) {
+      const angle = angleInc * j;
+
+      x = Math.cos(angle) * cirRadius;
+      y = Math.sin(angle) * cirRadius;
+
+      x += width * 0.5;
+      y += height * 0.5;
+
+      radius = dotRadius;
+
+      particles.push(new Particle({ x, y, radius }));
+    }
+
+    cirRadius += fitRadius * 2 + gapBtnCircles;
+    dotRadius = (1 - eases.quadOut(i / numCircles)) * fitRadius;
   }
+
+  // for (let i = 0; i < 200; i++) {
+  //   x = width * 0.5;
+  //   y = height * 0.5;
+
+  //   random.insideCircle(400, pos);
+  //   x += pos[0];
+  //   y += pos[1];
+
+  //   particles.push(new Particle({ x, y }));
+  // }
 
   return ({ context: ctx, width, height }) => {
     ctx.fillStyle = "black";
@@ -76,10 +117,12 @@ class Particle {
 
     this.radius = radius;
 
-    this.minDist = 100;
-    this.pushFactor = 0.02;
-    this.pullFactor = 0.004;
-    this.dampFactor = 0.95;
+    const useUniformValues = false;
+
+    this.minDist = useUniformValues ? 100 : random.range(100, 200);
+    this.pushFactor = useUniformValues ? 0.02 : random.range(0.01, 0.09);
+    this.pullFactor = useUniformValues ? 0.004 : random.range(0.002, 0.009);
+    this.dampFactor = useUniformValues ? 0.95 : random.range(0.9, 0.95);
   }
 
   update() {
