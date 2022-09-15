@@ -13,8 +13,8 @@
     "canvas-sketch": "^0.7.6",
     "canvas-sketch-util": "^1.10.0",
     "colormap": "^2.3.2",
-    "control-panel": "^1.3.4",
     "dat.gui": "^0.7.9",
+    "eases": "^1.0.8",
     "riso-colors": "^1.0.1"
   }
 }
