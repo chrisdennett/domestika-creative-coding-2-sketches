@@ -15,6 +15,8 @@
     "colormap": "^2.3.2",
     "dat.gui": "^0.7.9",
     "eases": "^1.0.8",
-    "riso-colors": "^1.0.1"
+    "riso-colors": "^1.0.1",
+    "stats": "^1.0.0",
+    "stats.js": "^0.17.0"
   }
 }

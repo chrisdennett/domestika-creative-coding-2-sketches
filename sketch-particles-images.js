@@ -1,7 +1,20 @@
 const canvasSketch = require("canvas-sketch");
 const random = require("canvas-sketch-util/random");
 const math = require("canvas-sketch-util/math");
+const color = require("canvas-sketch-util/color");
 const eases = require("eases");
+const colormap = require("colormap");
+
+let stats;
+
+var script = document.createElement("script");
+script.onload = function () {
+  stats = new Stats();
+  stats.showPanel(0);
+  document.body.appendChild(stats.dom);
+};
+script.src = "libs/stats.min.js";
+document.head.appendChild(script);
 
 const settings = {
   dimensions: [1080, 1080],
@@ -10,6 +23,11 @@ const settings = {
 
 const particles = [];
 const mousePos = { x: 9999, y: 9999 };
+const colors = colormap({
+  colormap: "viridis",
+  nshades: 20,
+});
+
 let elCanvas;
 let imgA;
 
@@ -25,9 +43,9 @@ const sketch = ({ width, height, canvas }) => {
 
   const imgAData = imgACtx.getImageData(0, 0, imgA.width, imgA.height).data;
 
-  const numCircles = 30;
-  const gapBtnCircles = 1;
-  const gapBtnDots = 1;
+  const numCircles = 19;
+  const gapBtnCircles = 5;
+  const gapBtnDots = 2;
   let dotRadius = 8;
   let cirRadius = 0;
   const fitRadius = dotRadius;
@@ -39,7 +57,7 @@ const sketch = ({ width, height, canvas }) => {
   for (let i = 0; i < numCircles; i++) {
     const circumference = Math.PI * 2 * cirRadius;
     const dotsPerCircle = i > 0 ? Math.floor(circumference / fitDiameter) : 1;
-    let ix, iy, index, r, g, b, colA;
+    let ix, iy, index, r, g, b, colA, hslColor;
 
     const angleInc = (Math.PI * 2) / dotsPerCircle;
 
@@ -61,26 +79,34 @@ const sketch = ({ width, height, canvas }) => {
       b = imgAData[index + 2];
       colA = `rgb(${r},${g},${b})`;
 
+      hslColor = color.parse(colA).hsl;
+
       // radius = dotRadius;
       radius = math.mapRange(r, 0, 255, 1, dotRadius);
 
-      particles.push(new Particle({ x, y, radius, colA }));
+      particles.push(new Particle({ x, y, radius, colA, hslColor }));
     }
 
     cirRadius += fitRadius * 2 + gapBtnCircles;
-    dotRadius = (1 - eases.quadOut(i / numCircles)) * fitRadius;
+    dotRadius = (1 - eases.circIn(i / numCircles)) * fitRadius;
   }
 
   return ({ context: ctx, width, height }) => {
+    if (stats) stats.begin();
+
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
 
     ctx.drawImage(imgACanvas, 0, 0);
 
+    particles.sort((p1, p2) => p1.scale - p2.scale);
+
     for (const p of particles) {
       p.update();
       p.draw(ctx);
     }
+
+    if (stats) stats.end();
   };
 };
 
@@ -117,7 +143,7 @@ const onMouseUp = () => {
 };
 
 class Particle {
-  constructor({ x, y, radius = 10, colA }) {
+  constructor({ x, y, radius = 10, colA, hslColor }) {
     // position
     this.x = x;
     this.y = y;
@@ -136,7 +162,14 @@ class Particle {
 
     this.radius = radius;
     this.scale = 1;
+
     this.color = colA;
+    this.imageColorRange = [];
+    this.colorFromRange = colors[0];
+    this.hue = hslColor[0];
+    this.saturation = hslColor[1];
+    this.lightness = hslColor[2];
+    this.hueFromScale = this.hue;
 
     const useUniformValues = false;
 
@@ -148,13 +181,26 @@ class Particle {
 
   update() {
     let dx, dy, dd, distDelta;
+    let colorIndex;
 
     // pull force (pulls back to orig pos)
     dx = this.ix - this.x;
     dy = this.iy - this.y;
+    dd = Math.sqrt(dx * dx + dy * dy); // dist from orig pos
 
     this.ax = dx * this.pullFactor;
     this.ay = dy * this.pullFactor;
+
+    this.scale = math.mapRange(dd, 0, this.minDist, 1, 5);
+    colorIndex = Math.floor(
+      math.mapRange(dd, 0, this.minDist, 0, colors.length - 1, true)
+    );
+
+    this.hueFromScale = Math.floor(
+      math.mapRange(dd, 0, this.minDist, this.hue, 360, true)
+    );
+
+    this.colorFromRange = colors[colorIndex];
 
     // push force
     dx = this.x - mousePos.x; // x dist to cursor
@@ -180,10 +226,12 @@ class Particle {
 
   draw(ctx) {
     ctx.save();
-    ctx.fillStyle = this.color;
+    // ctx.fillStyle = this.color;
+    // ctx.fillStyle = this.colorFromRange;
+    ctx.fillStyle = `hsl(${this.hueFromScale},${this.saturation}%,${this.lightness}%)`;
     ctx.beginPath();
     ctx.translate(this.x, this.y);
-    ctx.arc(0, 0, this.radius, 0, 2 * Math.PI);
+    ctx.arc(0, 0, this.radius * this.scale, 0, 2 * Math.PI);
     ctx.fill();
     ctx.restore();
   }
